@@ -1,0 +1,538 @@
+---
+title: Dr.
+name: André Calero Valdez
+position: "Junior Research Group Leader, AkadOR"
+address: "Maria-Theresia-Alle 19 -- 52064 Aachen, Germany"
+mobile: +49 173-5963359
+www: calerovaldez.com
+email: andrecalerovaldez@gmail.com
+profilepic: "../data/photo.jpeg"
+twitter: sumidu
+github: sumidu
+aboutme: Data Science, Human-Computer Interaction, Information Visualization, Recommender Systems, Industry 4.0, Machine Learning, Social Networks, Technology Acceptance
+date: "`r format(Sys.time(), '%B %Y')`"
+classoption: "sans"
+output: 
+  pdf_document:
+    keep_tex: true
+    template: template/template.tex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(vitae)
+library(tidyverse)
+library(lubridate)
+library(here)
+library(readxl)
+library(glue)
+add.suffix <- function (x) if(day(x) %in% c(1, 21, 31)) { paste0(day(x), "st", format(x, "%B %Y"))
+  } else if (day(x) %in% c(2, 22)){ paste0(day(x), "nd ", format(x, "%B %Y"))
+  } else paste0(day(x), "th ", format(x, "%B %Y"))
+
+
+
+
+```
+
+```{r experience, inclue=FALSE}
+# Data Loading ----
+# Jobs ----
+jobs.raw <- read_csv(here::here("data", "jobs.csv"))
+jobs <-
+  jobs.raw %>% 
+  fill(Start, End, What, With, Where, Tag) %>%  
+  mutate(Start = mdy(Start),
+         End = mdy(End)) %>% 
+  mutate(When = case_when(
+    is.na(End) ~ glue("{year(Start)}--Present") %>% as.character(),
+    year(Start) == year(End) ~ year(End) %>% as.character(),
+    TRUE ~ glue("{year(Start)}--{year(End)}") %>% as.character()
+  ))
+
+# Teaching ----
+teaching.raw <- read_csv(here::here("data", "teaching.csv"))
+teaching <-
+  teaching.raw %>% 
+  fill(Start, End, What, With, Where, Tag) %>%  
+  mutate(Start = mdy(Start),
+         End = mdy(End)) %>% 
+  mutate(When = case_when(
+    is.na(End) ~ glue("{year(Start)}--Present") %>% as.character(),
+    year(Start) == year(End) ~ year(End) %>% as.character(),
+    TRUE ~ glue("{year(Start)}--{year(End)}") %>% as.character()
+  ))
+
+# Service ----
+service.raw <- read_csv(here::here("data", "service.csv"))
+service <-
+  service.raw %>% 
+  fill(Start, End, What, With, Where, Tag) %>%  
+  mutate(Start = mdy(Start),
+         End = mdy(End)) %>% 
+  mutate(When = case_when(
+    is.na(End) ~ glue("{year(Start)}--Present") %>% as.character(),
+    year(Start) == year(End) ~ year(End) %>% as.character(),
+    TRUE ~ glue("{year(Start)}--{year(End)}") %>% as.character()
+  ))
+
+
+# Reviews ----
+reviews.raw <- read_csv(here::here("data", "reviews.csv"))
+
+reviews <- reviews.raw %>% 
+  fill(Type, Name)
+
+
+# Memberships ---
+memberships.raw <- read_csv(here::here("data", "memberships.csv"))
+memberships <- memberships.raw %>% fill(Membership, Type)
+
+
+# Google Publication Data ----
+my_name <- "**André Calero Valdez**" # how the authors name is shown
+name_aliases <- c("André Calero Valdez" = my_name,
+                  "AC Valdez" = my_name, 
+                  "A Calero Valdez" = my_name,
+                  "A Calero-Valdez" = my_name
+                  )
+pub_cache <- here::here("data", "pubcache.RDS")
+scholar_cache <- here::here("data", "scholarcache.RDS")
+if(!file.exists(pub_cache)){
+  publications <- scholar::get_publications("K6EVDoYAAAAJ")
+  scholar_profile <- scholar::get_profile("K6EVDoYAAAAJ")
+  write_rds(publications, pub_cache)
+  write_rds(scholar_profile, scholar_cache)
+
+} else {
+  publications <- read_rds(pub_cache)
+  scholar_profile <- read_rds(scholar_cache)
+}
+
+
+author_vars <- paste0("author_",1:20)
+
+reverse_words <- function(string)
+{
+  # split string by blank spaces
+  string_split = strsplit(as.character(string), split = ",")
+  # how many split terms?
+  string_length = length(string_split[[1]])
+  # decide what to do
+  if (string_length == 1) {
+    # one word (do nothing)
+    reversed_string = string_split[[1]]
+  } else {
+    # more than one word (collapse them)
+    reversed_split = string_split[[1]][string_length:1]
+    reversed_string = paste(reversed_split, collapse = " ")
+  }
+  # output
+  return(reversed_string)
+} 
+
+# Formatting helper function (A, B; C, D -> B A, D C)
+comma_switch <- function(x){
+  if(is.na(x)) {
+    return(NA)
+  }
+#  x <- c("Brauner, Philipp", "Calero, André")
+  lapply(x, reverse_words)
+}
+
+unpublished.raw <- read_csv(here::here("data", "unpublished.csv"))
+
+unpublished <- unpublished.raw %>% tidyr::separate(author, sep = ";|&", into=author_vars) %>% 
+  rowwise() %>% 
+  mutate_at(vars(author_vars),.funs = comma_switch) %>% 
+  unite(col = "author", author_vars, sep = ", ", remove = T) %>% 
+  mutate(author = str_replace_all(author, ", NA", "")) %>% 
+  mutate(number = case_when(is.na(number) ~ "", 
+                            !is.na(number) ~number)) %>% 
+  mutate(cites = 0, pubid="") %>% 
+  mutate(author = str_squish(author)) %>%  
+  mutate(author = str_replace_all(author, name_aliases)) 
+
+
+# Fix Publication Data
+publications <- publications %>% 
+  filter(!is.na(year)) %>% 
+  mutate(author = str_replace_all(author, name_aliases)) 
+
+# Remove ellipses
+publications <- publications %>% 
+  filter(!is.na(year)) %>% 
+  mutate(author = str_replace_all(
+    author, 
+    c("…"="et al.", " \\.\\.\\."=" et al."))) 
+
+# Change some typical mistakes
+journal_corrections <- c("Managing.the.enterprise.of.the.…" = "Managing the enterprise of the Future",
+                         "Human.Interface.and.the.Management.of.…" = "Human Interface and the Management of Information",
+                         "International.Conference.on.Information.and.Communication.Technologies.…" =
+                           "International Conference on Information and Communication Technologies for Ageing Well and eHealth",
+                         "Business,.Government.*and.Organizations.…" = "Business, Government, and Organizations",
+                         "Beiträge.der.…" = "Beiträge der Forschungspartner",
+                         "economic.endeavor.…" = "economic endeavor",
+                         "Human.Modeling.and.Applications.in.…" = 
+                           "Human Modeling and Applications in Health, Safety, Ergonomics and Risk Management",
+                         "Organisationen.in.Zeiten.des.…"= "Organisationen in Zeiten des demographischen Wandels")
+
+publications <- publications %>% 
+  mutate(journal = str_replace_all(
+    journal, journal_corrections))
+  
+publications <- publications %>% 
+  mutate(number = str_replace_all(
+    number, c("…"="")))
+
+
+publications <- publications %>% 
+  mutate(title = str_replace_all(
+    title, c("Credibility.of.Digital.Health.Information.and.the.…"="Credibility of Digital Health Information and the Influence of User Diversity")))
+
+#publications <- publications %>% 
+#  mutate(journal = case_when(str_length(journal)<1 ~ number,
+#                             str_length(journal)> ~ journal))
+
+publications <- publications %>% bind_rows(unpublished)
+
+# Orcid Data ----
+orcid_cache <- here::here("data", "orcidcache.RDS")
+if(!file.exists(orcid_cache)){
+  edu <- rorcid::orcid_educations("0000-0002-6214-1461")
+  write_rds(edu, orcid_cache)
+} else {
+  edu <- read_rds(orcid_cache)
+}
+
+
+```
+
+```{r presentations, include=FALSE}
+presentations.raw <- read_csv(here("data", "presentations.csv"))
+presentations <- 
+  presentations.raw %>% 
+  mutate(When = mdy(When))
+```
+
+
+# Personal Information
+
+```{r, results="asis"}
+pd_df <- tribble(~meta, ~input,
+              "Date of Birth","22nd January 1981",
+              "Marital Status", "Married",
+              "Children", "1 Daughter (1 year old)",
+              "Address", "Maria-Theresia-Allee 19",
+              "", "52064 Aachen, Germany",
+              "Email", "andrecalerovaldez@gmail.com",
+              "www", "www.calerovaldez.com"
+              )
+
+brief_entries(pd_df, when = meta, what = input, with = " ")
+```
+
+\vspace{1em}
+
+## Scholarly Metrics
+
+```{r, results="asis"}
+metrics_df <- tribble(~meta, ~input,
+              "Citations", scholar_profile$total_cites,
+              "h-index", scholar_profile$h_index,
+              "i10-index", scholar_profile$i10_index,
+              "Acquired 3rd party Funding", "approx. \\euro  1.3 Mio"
+              )
+
+brief_entries(metrics_df, when = meta, what = input, .protect = F)
+```
+
+
+<!-- # Education -->
+
+```{r education2, eval=FALSE, include=FALSE}
+
+edu$`0000-0002-6214-1461`$`education-summary` %>% 
+  mutate(`end-date.year.value` = replace_na(`end-date.year.value`, "2019")) %>% 
+  detailed_entries(
+    what = `role-title`,
+    when = glue::glue("{`start-date.year.value`} - {`end-date.year.value`}"), 
+    with = organization.name,
+    where = organization.address.city
+  )
+```
+
+# Work Experience
+
+```{r research}
+jobs %>% 
+  filter(Tag == "research") %>% 
+  arrange(desc(Start)) %>% 
+  detailed_entries(
+    what = What,
+    when = When,
+    with = With,
+    where = Where,
+    why = Why
+  )
+```
+
+# Scientific Degrees
+
+```{r degrees}
+jobs %>% 
+  filter(Tag == "degree") %>% 
+  arrange(desc(Start)) %>% 
+  detailed_entries(
+    what = What,
+    when = When,
+    with = With,
+    where = Where,
+    why = Why
+  )
+```
+
+
+# Education
+
+```{r education}
+jobs %>% 
+  filter(Tag == "education") %>% 
+  arrange(desc(Start)) %>% 
+  detailed_entries(
+    what = What,
+    when = When,
+    with = With,
+    where = Where,
+    why = Why
+  )
+```
+
+
+# Teaching Experience
+
+```{r}
+teaching %>%
+  filter(Tag == "teaching", year(Start) > 2005) %>%
+  arrange(desc(Start)) %>% 
+  detailed_entries(
+    what = What,
+    when = When,
+    with = With,
+    where = Where,
+    why = Why
+  )
+```
+
+\vspace{1em}
+
+## Invited Guest Lectures
+
+```{r}
+presentations %>% 
+  filter(Tag == "lecture") %>% 
+  arrange(desc(When)) %>% 
+  detailed_entries(what = Title,
+                   when = When,
+                   with = Conference,
+                   where = Location,
+                   why = Award)
+```
+
+# Grants, Awards and Honors
+
+```{r}
+read_csv(here("data", "awards and grants.csv")) %>% 
+  mutate(year = str_extract(date, "\\d{4}")) %>% 
+  arrange(desc(year)) %>% 
+  brief_entries(what = award, when = date, with = with)
+```
+
+<!--- # Publications --->
+
+```{r publications, eval=FALSE, include=FALSE}
+publications %>%
+  arrange(desc(year)) %>%
+  detailed_entries(
+    what = title,
+    when = year,
+    with = author,
+    where = paste0("",journal,""),
+    .protect = T
+  )
+
+#bibliography_entries(here("data", "My Publications.bib"), title = NULL)
+```
+
+<!--- ## Software -->
+
+```{r eval=FALSE, include=FALSE}
+df <- tribble(~what, ~when, ~with, ~where, ~why,
+              "Contributor to the `webchem` package by Eduard Szöcs et al.",
+              2017,
+              NA,
+              "https://cran.r-project.org/web/packages/webchem/",
+              "Contributed functions to scrape flavor percept data from flavor.net and to scrape retention indices from NIST given chemical identifier numbers",
+              "Author of `chemhelper` package",
+              2018,
+              NA,
+              "https://github.com/Aariq/chemhelper",
+              "Provides wrapper functions for working with IonAnalytics deconvolution software as well as other R packages for multivariate analysis"
+              )
+
+df %>% 
+  arrange(desc(when)) %>% 
+  detailed_entries(what = what, when = when, with = with, where = where, why = why)
+```
+
+# Presentations
+
+## Talks
+
+```{r}
+presentations %>% 
+  filter(Tag == "talk") %>% 
+  arrange(desc(When)) %>% 
+  detailed_entries(what = Title,
+                   when = glue("{month(When, label = TRUE)} {year(When)}"),
+                   with = Conference,
+                   where = Location,
+                   why = Award)
+```
+
+<!--- ## Posters -->
+
+```{r}
+presentations %>% 
+  filter(Tag == "poster") %>% 
+  arrange(desc(When)) %>% 
+  detailed_entries(what = Title,
+                   when = When,
+                   with = Conference,
+                   where = Location,
+                   why = Award)
+```
+
+<!---## Other -->
+
+```{r}
+presentations %>% 
+  filter(Tag == "workshop") %>% 
+  arrange(desc(When)) %>% 
+  detailed_entries(what = Title,
+                   when = When,
+                   with = Conference,
+                   where = Location,
+                   why = Award)
+```
+
+
+
+# Service
+
+## Memberships
+
+```{r}
+memberships %>% 
+  brief_entries(what=Membership, when=Type)
+```
+
+
+## Manuscript Reviews
+
+```{r}
+reviews %>% 
+  filter(Type == "adhoc") %>% 
+  pull(Name) %>% 
+  collapse(sep = ", ") -> adhocs
+
+reviews %>% 
+  filter(Type == "editorial") %>% 
+  pull(Name) %>% 
+  collapse(sep = ", ") -> editorial
+
+reviews %>% 
+  filter(Type == "committee") %>% 
+  pull(Name) %>% 
+  collapse(sep = ", ") -> committee
+
+review_df <- data.frame(Name=adhocs, Type="Adhoc reviews") %>%
+  bind_rows(data.frame(Name=editorial, Type="Editorial-Board or Program Committee")) %>% 
+  bind_rows(data.frame(Name=committee, Type="Head of Program Committee"))
+
+
+
+
+review_df %>% 
+  brief_entries(what=Name, when=Type)
+```
+
+## Academic Services
+
+```{r}
+service %>%
+  filter(Tag == "service") %>% 
+  detailed_entries(
+    what = What,
+    when = When,
+    with = With,
+    where = Where,
+    why = Why
+  )
+```
+
+# Bibliography
+**Articles published by outlets with scientific quality assurance, book publications, and works accepted for publication but not yet published.**
+
+Citations are retrieved from Google Scholar on `r add.suffix(Sys.Date())`. 
+
+```{r, results="asis"}
+
+formatEntry <- function(id, author, title, journal, number, cites, year, cid, pubid){
+  res <- paste0(" 1. ")
+  if(str_length(author)>0) {
+    res <- paste0(res, author, " ")
+  }
+  if(str_length(year)>0) {
+    res <- paste0(res, "(", year, "). ")
+  }
+  if(str_length(title)>0) {
+    res <- paste0(res, title, ". ")
+  }
+  if(str_length(journal)>0) {
+    res <- paste0(res, " In: *", journal, "*")
+  }
+  if(str_length(number)>0) {
+    res <- paste0(res, ", ", number)
+  }
+  if(cites>0) {
+      res <- paste0(res, " (cited ", cites, " times)")
+  } 
+  if(!is.na(cid)){
+    if(cid=="(accepted)"){
+      res <- paste0(res, " **(accepted)**")
+    }
+    if(cid=="(under revision)"){
+      res <- paste0(res, " **(under revision)**")
+    }
+    if(cid=="(submitted)"){
+      res <- paste0(res, " **(submitted)**")
+    }
+  }
+
+
+  paste0(res, "\n")
+}
+
+publications <- publications %>% 
+  arrange(desc(year)) %>% 
+  mutate(id = 1:n()) %>% 
+  rowwise() %>% 
+  mutate(mdtext = formatEntry(id, author, title, journal, number, cites, year, cid, pubid)) 
+
+publications %>%
+  arrange(desc(year)) %>% 
+  pull("mdtext") %>% cat()
+```
+
